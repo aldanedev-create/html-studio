@@ -1,0 +1,85 @@
+name: Windows package
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout HTML Studio
+        uses: actions/checkout@v4
+
+      - name: Checkout editable Teloce-Py
+        uses: actions/checkout@v4
+        with:
+          repository: aldanedev-create/teloce-python
+          path: teloce-python
+
+      - name: Checkout Flaxon
+        uses: actions/checkout@v4
+        with:
+          repository: aldanedev-create/Flaxon-Backend-Framework
+          path: flaxon
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install editable dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .\teloce-python
+          python -m pip install -e .\flaxon
+          python -m pip install uvicorn pytest httpx ruff pyinstaller
+
+      - name: Install and vendor Monaco
+        shell: pwsh
+        run: |
+          npm ci
+          node scripts/vendor-monaco.mjs
+
+      - name: Build frontend
+        run: python build.py
+
+      - name: Build Flaxon sidecar
+        shell: pwsh
+        run: |
+          pyinstaller --clean --onefile --name flaxon-api `
+            --add-data "templates;templates" `
+            --add-data "static;static" `
+            --add-data "workspace;workspace" app.py
+          New-Item -ItemType Directory -Force src-tauri\binaries | Out-Null
+          Copy-Item dist\flaxon-api.exe src-tauri\binaries\flaxon-api-x86_64-pc-windows-msvc.exe
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install Tauri CLI
+        shell: pwsh
+        run: cargo install tauri-cli --version "^2"
+
+      - name: Build Tauri MSI and NSIS artifacts
+        run: cargo tauri build --config src-tauri/tauri.conf.json
+
+      - name: Stage unsigned MSIX for Store validation
+        shell: pwsh
+        run: .\scripts\stage-msix.ps1
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-studio-windows
+          path: |
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            artifacts/msix/**

@@ -1,0 +1,8 @@
+{
+  "name": "html-studio-editor-assets",
+  "private": true,
+  "description": "Pinned local Monaco Editor assets for HTML Studio",
+  "dependencies": {
+    "monaco-editor": "0.52.2"
+  }
+}

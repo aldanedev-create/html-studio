@@ -1,0 +1,99 @@
+<template>
+  <aside class="explorer" :class="{ hidden: !visible }" aria-label="Project explorer">
+    <header class="explorer-heading"><div><span class="panel-kicker">PROJECT</span><strong :title="workspaceName">{{ workspaceName }}</strong></div><div class="heading-actions"><button title="Refresh project files" aria-label="Refresh project files" @click="loadFiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4M20 5v6h-6" /></svg></button><button title="Create a new file" aria-label="Create a new file" @click="createFile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button></div></header>
+    <div class="tree-heading"><span>FILES</span><div class="tree-actions"><button title="New file" aria-label="New file" @click="createFile">+</button><button title="New folder" aria-label="New folder" @click="createFolder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v10H3zM3 7V5h7l2 2" /></svg></button></div></div>
+    <label class="project-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.4" /><path d="m16 16 4.5 4.5" /></svg><input ref="searchInput" v-model="query" aria-label="Search project" placeholder="Search project" @input="scheduleSearch" @keydown.escape="clearSearch" /><kbd>Ctrl+Shift+F</kbd></label>
+    <div v-if="query.trim()" class="search-results"><p v-if="searching" class="empty">Searching project...</p><p v-if="!searching && searchResults.length === 0" class="empty">No matches found.</p><button v-for="result in searchResults" :key="result.path + ':' + result.line" class="search-result" @click="openSearchResult(result)"><span class="result-file">{{ result.path }}<small>line {{ result.line }}</small></span><span class="result-text">{{ result.text }}</span></button></div>
+    <div class="file-tree" @click="dismissContext"><p v-if="loading" class="empty">Loading project files…</p><p v-if="!loading && treeEntries.length === 0" class="empty">No editable files yet.</p><button v-for="entry in treeEntries" :key="entry.path" class="tree-row" :class="{ active: entry.path === active, folder: entry.kind === 'folder' }" :style="{ '--depth': entry.depth }" :title="entry.path" @click="selectEntry(entry)" @dblclick="openEntry(entry)" @contextmenu.prevent="openContext(entry)"><span v-if="entry.kind === 'folder'" class="tree-arrow">{{ expanded[entry.path] ? 'v' : '>' }}</span><span v-if="entry.kind !== 'folder'" class="tree-arrow spacer"></span><span class="file-icon" :class="entry.kind === 'folder' ? 'folder-icon' : iconClass(entry.path)"><svg v-if="entry.kind === 'folder'" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v10H3zM3 7V5h7l2 2" /></svg><span v-if="entry.kind !== 'folder'">{{ icon(entry.path) }}</span></span><span class="entry-name">{{ entry.name }}</span><span v-if="entry.path === active && entry.kind !== 'folder'" class="active-mark" aria-label="Open file"></span></button></div>
+    <div v-if="contextPath" class="context-menu" role="menu"><button role="menuitem" @click="renameEntry">Rename</button><button v-if="contextKind === 'folder'" role="menuitem" @click="createFileInContext">New file</button><button v-if="contextKind === 'folder'" role="menuitem" @click="createFolderInContext">New folder</button><button role="menuitem" @click="copyPath">Copy path</button><button class="danger" role="menuitem" @click="deleteEntry">Delete</button></div>
+    <footer class="explorer-footer"><span class="local-dot"></span><span>Files stay in your local workspace.</span></footer>
+  </aside>
+</template>
+
+<script>
+export default {
+  props: { visible: { type: Boolean, default: true } },
+  data() { return { files: [], active: 'index.html', loading: true, workspaceName: 'starter-site', expanded: {}, contextPath: '', contextKind: '', contextFolder: '', query: '', searchResults: [], searching: false, searchTimer: null, searchGeneration: 0, focusSearchHandler: null, refreshHandler: null } },
+  computed: {
+    treeEntries() {
+      const folders = new Map()
+      const entries = []
+      for (const file of this.files) {
+        const parts = String(file.path).split('/')
+        let parent = ''
+        for (let index = 0; index < parts.length - 1; index += 1) {
+          const folder = parent ? `${parent}/${parts[index]}` : parts[index]
+          if (!folders.has(folder)) folders.set(folder, { path: folder, name: parts[index], kind: 'folder' })
+          parent = folder
+        }
+      }
+      entries.push(...Array.from(folders.values()))
+      entries.push(...this.files.filter(file => file.kind === 'file').map(file => ({ path: file.path, name: file.name, kind: 'file' })))
+      entries.sort((left, right) => left.path.localeCompare(right.path, undefined, { numeric: true, sensitivity: 'base' }))
+      return entries.filter(entry => {
+        const parents = entry.path.split('/').slice(0, -1)
+        return parents.every(parent => this.expanded[parent] !== false)
+      }).map(entry => ({ ...entry, depth: entry.path.split('/').length - 1 }))
+    },
+  },
+  async mounted() { this.refreshHandler = () => this.loadFiles(); this.focusSearchHandler = () => document.querySelector('.project-search input')?.focus?.(); window.addEventListener('vel-studio-workspace-refresh', this.refreshHandler); window.addEventListener('vel-studio-focus-search', this.focusSearchHandler); await this.loadFiles() },
+  beforeUnmount() { if (this.refreshHandler) window.removeEventListener('vel-studio-workspace-refresh', this.refreshHandler); if (this.focusSearchHandler) window.removeEventListener('vel-studio-focus-search', this.focusSearchHandler); window.clearTimeout(this.searchTimer) },
+  methods: {
+    async loadFiles() {
+      this.loading = true
+      try {
+        const payload = await window.VelStudioWorkspace.list()
+        this.files = payload.filter(file => file.kind === 'file' || file.kind === 'folder')
+        const info = await window.VelStudioWorkspace.info?.().catch(() => null)
+        if (info?.name) this.workspaceName = info.name
+        if (this.files.length && !this.files.some(file => file.path === this.active)) {
+          const first = this.files.find(file => file.kind === 'file')
+          if (first) { this.active = first.path; window.VelStudioShell?.setActiveFile?.(first.path) }
+        }
+        window.VelStudioShell?.setWorkspaceName?.(this.workspaceName)
+      } catch (error) { window.VelStudioShell?.setStatus?.(`Could not list files: ${error.message}`) }
+      finally { this.loading = false }
+    },
+    icon(file) { const value = String(file).toLowerCase(); return value.endsWith('.html') || value.endsWith('.htm') ? 'H' : value.endsWith('.css') ? 'C' : value.endsWith('.js') || value.endsWith('.mjs') ? 'J' : value.endsWith('.json') ? '{}' : '·' },
+    iconClass(file) { const value = String(file).toLowerCase(); return value.endsWith('.html') || value.endsWith('.htm') ? 'html-icon' : value.endsWith('.css') ? 'css-icon' : value.endsWith('.js') || value.endsWith('.mjs') ? 'js-icon' : 'other-icon' },
+    selectEntry(entry) { this.contextPath = ''; if (entry.kind === 'folder') this.expanded[entry.path] = this.expanded[entry.path] === false; else { this.active = entry.path; window.VelStudioShell?.setActiveFile?.(entry.path); window.VelStudioEditor?.open?.(entry.path) } },
+    openEntry(entry) { if (entry.kind === 'file') this.selectEntry(entry) },
+    openContext(entry) { this.contextPath = entry.path; this.contextKind = entry.kind; this.contextFolder = entry.kind === 'folder' ? entry.path : entry.path.split('/').slice(0, -1).join('/') },
+    dismissContext() { if (this.contextPath) this.contextPath = '' },
+    scheduleSearch() { window.clearTimeout(this.searchTimer); const value = this.query.trim(); if (!value) { this.searchResults = []; this.searching = false; return } this.searching = true; this.searchTimer = window.setTimeout(() => this.searchProject(value), 180) },
+    async searchProject(value) {
+      const needle = String(value || '').trim().toLowerCase();
+      if (!needle) { this.searchResults = []; this.searching = false; return }
+      const generation = ++this.searchGeneration;
+      try {
+        const records = await window.VelStudioWorkspace.list();
+        const matches = await Promise.all(records.filter(record => record.kind === 'file').map(async record => {
+          try {
+            const content = await window.VelStudioWorkspace.read(record.path);
+            return String(content).split(/\r?\n/).flatMap((line, index) => line.toLowerCase().includes(needle) ? [{ path: record.path, line: index + 1, text: line.trim().slice(0, 140) || '(blank line)' }] : []);
+          } catch (_) { return [] }
+        }));
+        if (generation === this.searchGeneration && this.query.trim().toLowerCase() === needle) this.searchResults = matches.flat().slice(0, 100);
+      } catch (error) { window.VelStudioShell?.setStatus?.(`Search failed: ${error.message}`) }
+      finally { if (generation === this.searchGeneration && this.query.trim().toLowerCase() === needle) this.searching = false }
+    },
+    clearSearch() { this.query = ''; this.searchResults = []; this.searching = false },
+    async openSearchResult(result) { if (!result?.path) return; this.clearSearch(); this.active = result.path; window.VelStudioShell?.setActiveFile?.(result.path); const opened = await window.VelStudioEditor?.open?.(result.path); if (opened === false) return; window.VelStudioEditor?.revealLine?.(result.line); window.VelStudioShell?.setStatus?.(`Opened ${result.path}:${result.line}`) },
+    async createFile() { await this.createFileAt('') },
+    async createFileInContext() { await this.createFileAt(this.contextPath); this.contextPath = '' },
+    async createFileAt(folder) { const name = window.prompt('File name', 'about.html'); if (!name) return; const path = folder ? `${folder}/${name.trim()}` : name.trim(); try { await window.VelStudioWorkspace.write(path, ''); await this.loadFiles(); this.active = path; window.VelStudioShell?.setActiveFile?.(path); window.VelStudioEditor?.open?.(path); window.VelStudioShell?.setStatus?.(`Created ${path}`) } catch (error) { window.VelStudioShell?.setStatus?.(`Could not create file: ${error.message}`) } },
+    async createFolder() { await this.createFolderAt('') },
+    async createFolderInContext() { await this.createFolderAt(this.contextPath); this.contextPath = '' },
+    async createFolderAt(parent) { const name = window.prompt('Folder name', 'components'); if (!name) return; const path = parent ? `${parent}/${name.trim()}` : name.trim(); try { await window.VelStudioWorkspace.createFolder(path); this.expanded[path] = true; await this.loadFiles(); window.VelStudioShell?.setStatus?.(`Created folder ${path}`) } catch (error) { window.VelStudioShell?.setStatus?.(`Could not create folder: ${error.message}`) } },
+    async renameEntry() { const path = this.contextPath; const name = window.prompt('New name', path.split('/').pop()); this.contextPath = ''; if (!name) return; try { const result = await window.VelStudioWorkspace.rename(path, name.trim()); if (this.active === path) { this.active = result.path; window.VelStudioShell?.setActiveFile?.(result.path) } await this.loadFiles(); window.VelStudioShell?.setStatus?.(`Renamed to ${result.path}`) } catch (error) { window.VelStudioShell?.setStatus?.(`Could not rename: ${error.message}`) } },
+    async deleteEntry() { const path = this.contextPath; this.contextPath = ''; if (!window.confirm(`Delete ${path}? This cannot be undone.`)) return; try { await window.VelStudioWorkspace.remove(path); if (this.active === path || this.active.startsWith(`${path}/`)) { this.active = ''; window.VelStudioShell?.setActiveFile?.('') } await this.loadFiles(); window.VelStudioShell?.setStatus?.(`Deleted ${path}`) } catch (error) { window.VelStudioShell?.setStatus?.(`Could not delete: ${error.message}`) } },
+    async copyPath() { const path = this.contextPath; this.contextPath = ''; try { await navigator.clipboard.writeText(path); window.VelStudioShell?.setStatus?.('Path copied') } catch (_) { window.VelStudioShell?.setStatus?.(path) } },
+  },
+}
+</script>
+
+<style scoped>
+.explorer { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #1e3049; background: #111a2b; }.explorer.hidden { display: none; }.explorer-heading { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .7rem .65rem .55rem; }.explorer-heading div:first-child { display: grid; gap: .2rem; min-width: 0; }.panel-kicker, .tree-heading > span { color: #6f87a5; font-size: .59rem; font-weight: 900; letter-spacing: .12em; }.explorer-heading strong { overflow: hidden; color: #eaf2ff; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }.heading-actions, .tree-actions { display: flex; gap: .2rem; }.heading-actions button, .tree-actions button { display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border: 1px solid transparent; border-radius: .3rem; background: transparent; color: #839ab5; cursor: pointer; }.heading-actions button:hover, .tree-actions button:hover { border-color: #31516d; background: #1c3048; color: #6fe0d1; }.heading-actions svg, .tree-actions svg { width: .82rem; height: .82rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }.tree-heading { display: flex; align-items: center; justify-content: space-between; padding: .55rem .65rem .35rem; border-top: 1px solid #1b2b43; }.file-tree { min-height: 0; overflow: auto; padding: .15rem .35rem; }.tree-row { display: flex; align-items: center; gap: .35rem; width: 100%; min-height: 1.8rem; padding: .25rem .45rem; padding-left: calc(.45rem + (var(--depth) * .85rem)); border: 1px solid transparent; border-radius: .27rem; background: transparent; color: #9eb1ca; text-align: left; cursor: pointer; }.tree-row:hover { background: #192b43; color: #eff6ff; }.tree-row.active { border-color: #275367; background: #173747; color: #f4fbff; }.tree-arrow { width: .55rem; color: #7591aa; font-size: .65rem; text-align: center; }.tree-arrow.spacer { visibility: hidden; }.file-icon { display: grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: .22rem; font-size: .6rem; font-weight: 900; }.file-icon svg { width: .85rem; height: .85rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }.folder-icon { color: #ddb66a; }.html-icon { color: #e79c78; background: #552f2d; }.css-icon { color: #75b7e5; background: #243e5a; }.js-icon { color: #e3c66d; background: #514526; }.other-icon { color: #c2b6e7; background: #382e52; }.entry-name { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }.active-mark { width: .35rem; height: .35rem; margin-left: auto; border-radius: 50%; background: #62d9c7; }.empty { padding: .8rem; color: #70849f; font-size: .7rem; }.context-menu { position: absolute; z-index: 20; top: 5.8rem; right: .5rem; left: .5rem; display: grid; padding: .25rem; border: 1px solid #385170; border-radius: .4rem; background: #16243a; box-shadow: 0 .8rem 2rem #050a1466; }.context-menu button { border: 0; border-radius: .25rem; padding: .42rem .55rem; background: transparent; color: #c6d4e9; text-align: left; cursor: pointer; font-size: .7rem; }.context-menu button:hover { background: #203751; color: #fff; }.context-menu .danger { color: #f0a8a8; }.explorer-footer { display: flex; align-items: center; gap: .4rem; margin-top: auto; padding: .65rem; border-top: 1px solid #1b2b43; color: #6f849f; font-size: .62rem; }.local-dot { width: .4rem; height: .4rem; border-radius: 50%; background: #62d9c7; }
+.explorer { height: 100%; }
+.project-search { display: flex; align-items: center; gap: .35rem; margin: .2rem .45rem .45rem; padding: .32rem .4rem; border: 1px solid #263d5a; border-radius: .3rem; background: #0d1728; color: #7690aa; }.project-search:focus-within { border-color: #4ecabf; box-shadow: 0 0 0 2px #4ecabf22; }.project-search svg { width: .82rem; height: .82rem; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }.project-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #dce8f8; font-size: .68rem; }.project-search input::placeholder { color: #637995; }.project-search kbd { color: #607a96; font-size: .53rem; white-space: nowrap; }.search-results { min-height: 0; max-height: 15rem; overflow: auto; padding: 0 .45rem .45rem; border-bottom: 1px solid #1b2b43; }.search-result { display: grid; gap: .18rem; width: 100%; margin-top: .25rem; padding: .42rem .5rem; border: 1px solid transparent; border-radius: .3rem; background: transparent; color: #bacbe0; text-align: left; cursor: pointer; }.search-result:hover { border-color: #2d6170; background: #173547; }.result-file { overflow: hidden; color: #76dfcf; font-size: .63rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }.result-file small { margin-left: .45rem; color: #7f94af; font-weight: 500; }.result-text { overflow: hidden; color: #93a8c1; font: .61rem/1.35 "Cascadia Code", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+</style>

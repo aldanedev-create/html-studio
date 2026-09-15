@@ -1,0 +1,28 @@
+<template>
+  <nav class="tabs" aria-label="Open files"><div v-if="tabs.length === 0" class="no-tabs">No open files</div><div v-for="file in tabs" :key="file" class="tab-wrap" :class="{ active: file === selectedFile }"><button class="tab" :title="file" @click="open(file)"><span class="tab-icon" :class="languageClass(file)">{{ language(file) }}</span><span class="tab-name">{{ name(file) }}</span><span v-if="isDirty(file)" class="tab-dirty" aria-label="Unsaved changes"></span></button><button class="tab-close" :aria-label="`Close ${name(file)}`" :title="`Close ${file}`" @click.stop="close(file)">×</button></div><button class="new-tab" title="Open the new file picker" aria-label="Open file picker" @click="openPicker">+</button></nav>
+</template>
+
+<script>
+export default {
+  props: { activeFile: { type: String, default: 'index.html' } },
+  data() { return { tabs: [], selectedFile: this.activeFile, handleOpen: null, handleClose: null, handleRefresh: null } },
+  async mounted() { this.handleOpen = event => this.add(event.detail); this.handleClose = () => this.close(this.selectedFile); this.handleRefresh = () => this.loadTabs(); window.addEventListener('vel-studio-open-file', this.handleOpen); window.addEventListener('vel-studio-close-active', this.handleClose); window.addEventListener('vel-studio-workspace-refresh', this.handleRefresh); await this.loadTabs(); if (this.activeFile) this.add(this.activeFile) },
+  beforeUnmount() { if (this.handleOpen) window.removeEventListener('vel-studio-open-file', this.handleOpen); if (this.handleClose) window.removeEventListener('vel-studio-close-active', this.handleClose); if (this.handleRefresh) window.removeEventListener('vel-studio-workspace-refresh', this.handleRefresh) },
+  updated() { if (this.activeFile && !this.tabs.includes(this.activeFile)) this.tabs = [...this.tabs, this.activeFile]; this.selectedFile = this.activeFile || this.selectedFile },
+  methods: {
+    async loadTabs() { try { const records = await window.VelStudioWorkspace.list(); const available = records.filter(file => file.kind === 'file').map(file => file.path); this.tabs = this.tabs.filter(file => available.includes(file)); const first = records.find(file => file.kind === 'file' && /\.(?:html?|css|js|mjs)$/i.test(file.path)); if (first && !this.tabs.length) this.add(first.path) } catch (_) {} },
+    add(file) { if (!file) return; if (!this.tabs.includes(file)) this.tabs = [...this.tabs, file]; this.selectedFile = file },
+    open(file) { this.add(file); window.VelStudioShell?.setActiveFile?.(file); window.VelStudioEditor?.open?.(file) },
+    async close(file) { if (this.isDirty(file) && !window.confirm(`Save changes to ${this.name(file)} before closing?`)) return; if (this.isDirty(file)) await window.VelStudioEditor?.save?.(); const index = this.tabs.indexOf(file); this.tabs = this.tabs.filter(item => item !== file); if (this.selectedFile === file) { const next = this.tabs[index] || this.tabs[index - 1] || ''; this.selectedFile = next; if (next) { window.VelStudioShell?.setActiveFile?.(next); window.VelStudioEditor?.open?.(next) } } },
+    isDirty(file) { return Boolean(window.VelStudioEditor?.isDirty?.(file)) },
+    name(file) { return String(file).split('/').pop() },
+    language(file) { const value = String(file).toLowerCase(); return value.endsWith('.html') || value.endsWith('.htm') ? 'H' : value.endsWith('.css') ? 'C' : value.endsWith('.js') || value.endsWith('.mjs') ? 'J' : '·' },
+    languageClass(file) { const value = String(file).toLowerCase(); return value.endsWith('.html') || value.endsWith('.htm') ? 'html' : value.endsWith('.css') ? 'css' : value.endsWith('.js') || value.endsWith('.mjs') ? 'js' : 'other' },
+    openPicker() { window.VelStudioApp?.openQuickPick?.() },
+  },
+}
+</script>
+
+<style scoped>
+.tabs { display: flex; align-items: stretch; min-width: 0; min-height: 2.4rem; overflow: auto hidden; border-bottom: 1px solid #1e3049; background: #101a2b; }.tab-wrap { display: flex; align-items: stretch; flex: 0 0 auto; border-right: 1px solid #1d2e46; }.tab-wrap.active { background: #17263d; box-shadow: inset 0 -2px #62d9c7; }.tab { display: inline-flex; align-items: center; gap: .42rem; min-width: 0; max-width: 13rem; border: 0; padding: 0 .45rem .0 .7rem; background: transparent; color: #8599b4; cursor: pointer; }.tab-wrap:hover .tab, .tab-wrap.active .tab { color: #edf5ff; }.tab-icon { display: grid; place-items: center; width: 1rem; height: 1rem; border-radius: .18rem; font-size: .54rem; font-weight: 900; }.tab-icon.html { background: #57332e; color: #eca58a; }.tab-icon.css { background: #284663; color: #82c4ec; }.tab-icon.js { background: #554a2c; color: #e8cf77; }.tab-icon.other { background: #3e3556; color: #c8b9ed; }.tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .7rem; }.tab-dirty { width: .38rem; height: .38rem; border-radius: 50%; background: #dfb96f; }.tab-close { display: grid; place-items: center; width: 1.4rem; border: 0; background: transparent; color: #7187a3; font-size: .95rem; cursor: pointer; }.tab-close:hover { color: #fff; }.new-tab { flex: 0 0 auto; align-self: center; width: 1.8rem; height: 1.7rem; margin-left: .25rem; border: 1px solid transparent; border-radius: .3rem; background: transparent; color: #8ea5bd; cursor: pointer; }.new-tab:hover { border-color: #31516d; background: #1a2b42; color: #fff; }.no-tabs { align-self: center; padding: 0 .8rem; color: #697e99; font-size: .68rem; }
+</style>

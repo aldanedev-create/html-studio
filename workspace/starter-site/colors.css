@@ -1,0 +1,3 @@
+/* This second stylesheet is intentional: HTML Studio previews every linked local CSS file. */
+:root { --creator-mint: #8be5d0; --creator-purple: #6855c9; }
+.hero-card strong, .hero-card em { color: var(--creator-purple); }

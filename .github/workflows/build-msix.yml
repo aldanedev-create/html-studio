@@ -1,0 +1,149 @@
+name: Build HTML Studio MSIX
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  # These checkouts keep release validation on the exact compiler/framework
+  # source instead of silently using whatever is currently on PyPI.
+  TELOCE_REPOSITORY: flaxon-labs/teloce-py
+  FLAXON_REPOSITORY: Flaxon-Labs/flaxon
+  MSIX_IDENTITY_NAME: HappyRecorder3D.html-studio
+  MSIX_PUBLISHER: CN=50CA2AC2-0155-44AC-B2B0-47100A3FB6E2
+  MSIX_PUBLISHER_DISPLAY_NAME: Happy Recorder 3D
+  MSIX_PFX_BASE64: ${{ secrets.MSIX_PFX_BASE64 }}
+  MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: html-studio
+
+    steps:
+      - name: Check out HTML Studio
+        uses: actions/checkout@v4
+        with:
+          path: html-studio
+
+      - name: Check out editable Teloce-Py
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TELOCE_REPOSITORY }}
+          path: teloce-python
+
+      - name: Check out editable Flaxon
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FLAXON_REPOSITORY }}
+          path: flaxon
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: html-studio/requirements.txt
+
+      - name: Install editable compiler and framework
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ../teloce-python -e ../flaxon
+          python -m pip install -e . --no-deps
+          python -m pip install uvicorn pytest httpx
+
+      - name: Compile the .vel frontend
+        run: python build.py
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Generate native app icons
+        run: cargo tauri icon static/assets/html-studio-logo.svg
+
+      - name: Build the native Tauri executable
+        run: cargo tauri build --bundles nsis --verbose
+
+      - name: Stage the Store MSIX
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path $pwd 'msix-stage'
+          $assets = Join-Path $stage 'Assets'
+          $artifactDir = Join-Path $pwd 'artifacts'
+          New-Item -ItemType Directory -Force -Path $assets, $artifactDir | Out-Null
+
+          $exe = Join-Path $pwd 'src-tauri/target/release/html-studio.exe'
+          if (-not (Test-Path $exe)) { throw "Tauri executable was not produced: $exe" }
+          Copy-Item $exe (Join-Path $stage 'html-studio.exe')
+
+          $icon = Join-Path $pwd 'src-tauri/icons/128x128.png'
+          $iconSmall = Join-Path $pwd 'src-tauri/icons/32x32.png'
+          if (-not (Test-Path $icon)) { throw "Tauri icon was not generated: $icon" }
+          if (-not (Test-Path $iconSmall)) { $iconSmall = $icon }
+          Copy-Item $icon (Join-Path $assets 'StoreLogo.png')
+          Copy-Item $icon (Join-Path $assets 'Square150x150Logo.png')
+          Copy-Item $iconSmall (Join-Path $assets 'Square44x44Logo.png')
+
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $msixVersion = ($version -split '\.')[0..2] -join '.'
+          $msixVersion = "$msixVersion.0"
+          $manifest = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap">
+            <Identity Name="$env:MSIX_IDENTITY_NAME" Publisher="$env:MSIX_PUBLISHER" Version="$msixVersion" ProcessorArchitecture="x64" />
+            <Properties>
+              <DisplayName>HTML Studio</DisplayName>
+              <PublisherDisplayName>$env:MSIX_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
+              <Description>Learn to build websites with HTML Studio, Teloce .vel components, and Flaxon.</Description>
+              <Logo>Assets\StoreLogo.png</Logo>
+            </Properties>
+            <Resources><Resource Language="en-us" /></Resources>
+            <Dependencies>
+              <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+            </Dependencies>
+            <Applications>
+              <Application Id="App" Executable="html-studio.exe" EntryPoint="Windows.FullTrustApplication">
+                <uap:VisualElements AppListEntry="default" DisplayName="HTML Studio" Description="A friendly HTML, CSS, and JavaScript learning studio" BackgroundColor="#10182A" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+              </Application>
+            </Applications>
+          </Package>
+          "@
+          $manifest.Trim() | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
+
+          $makeAppx = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin" -Recurse -Filter MakeAppx.exe -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+          if (-not $makeAppx) { throw 'MakeAppx.exe was not found on the Windows runner.' }
+          & $makeAppx.FullName pack /d $stage /p (Join-Path $artifactDir 'HTML-Studio.msix') /o
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
+
+      - name: Sign MSIX when signing secrets are configured
+        if: ${{ env.MSIX_PFX_BASE64 != '' }}
+        env:
+          MSIX_PFX_BASE64: ${{ secrets.MSIX_PFX_BASE64 }}
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'html-studio.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:MSIX_PFX_BASE64))
+          $signTool = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+          if (-not $signTool) { throw 'SignTool.exe was not found on the Windows runner.' }
+          & $signTool.FullName sign /fd SHA256 /f $pfx /p $env:MSIX_PFX_PASSWORD (Join-Path $pwd 'artifacts/HTML-Studio.msix')
+          if ($LASTEXITCODE -ne 0) { throw "SignTool failed with exit code $LASTEXITCODE" }
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-studio-msix
+          path: html-studio/artifacts/HTML-Studio.msix
+          if-no-files-found: error

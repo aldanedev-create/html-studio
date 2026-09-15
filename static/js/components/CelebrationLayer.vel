@@ -1,0 +1,21 @@
+<template>
+  <div v-if="sparks.length" class="celebration-layer" aria-hidden="true">
+    <span v-for="spark in sparks" :key="spark.style" class="banana-spark" :style="spark.style">{{ spark.symbol }}</span>
+  </div>
+</template>
+
+<script>
+export default {
+  data() { return { sparks: [], clearTimer: null, api: null } },
+  mounted() { this.api = { burst: () => this.burst() }; window.VelStudioCelebration = this.api },
+  beforeUnmount() { window.clearTimeout(this.clearTimer); if (window.VelStudioCelebration === this.api) window.VelStudioCelebration = null },
+  methods: {
+    burst() { window.clearTimeout(this.clearTimer); this.sparks = Array.from({ length: 18 }, (_, index) => ({ symbol: index % 4 === 0 ? '🍌' : '✦', style: `--x: ${(index % 2 ? 1 : -1) * (80 + index * 17)}px; --y: ${-80 - (index % 5) * 36}px; --r: ${(index % 2 ? 1 : -1) * (12 + index * 9)}deg; --delay: ${(index % 4) * 35}ms` })); this.clearTimer = window.setTimeout(() => { this.sparks = [] }, 1550) },
+  },
+}
+</script>
+
+<style scoped>
+.celebration-layer { position: fixed; z-index: 100; inset: 0; overflow: hidden; pointer-events: none; }.banana-spark { position: absolute; top: 42%; left: 50%; display: block; color: #f59e0b; font-size: 1.45rem; filter: drop-shadow(0 0 .45rem #facc15aa); opacity: 0; transform: translate(-50%, -50%); animation: banana-spark-fly 1.35s cubic-bezier(.2,.75,.25,1) var(--delay) both; }.banana-spark:nth-child(3n) { color: #d946ef; font-size: 1.1rem; }.banana-spark:nth-child(3n + 1) { color: #06b6d4; }.banana-spark:nth-child(5n) { font-size: 1.8rem; }
+@keyframes banana-spark-fly { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.35) rotate(0deg); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r)); } }
+</style>

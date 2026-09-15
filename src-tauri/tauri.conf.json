@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "HTML Studio",
+  "version": "0.1.0",
+  "identifier": "com.flaxonlabs.velstudio",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeDevCommand": "python app.py",
+    "beforeBuildCommand": "python build.py",
+    "devUrl": "http://127.0.0.1:5179"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "HTML Studio",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:*; img-src 'self' data: https:; frame-src 'self' blob: data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "category": "DeveloperTool",
+    "shortDescription": "A friendly HTML, CSS and JavaScript learning studio",
+    "longDescription": "Learn to build real websites with a Monaco editor, live preview, local files, CDN libraries, and Teloce .vel components.",
+    "resources": ["workspace/starter-site"],
+    "windows": {
+      "webviewInstallMode": { "type": "offlineInstaller" },
+      "nsis": { "installMode": "currentUser" }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+<template>
+  <section class="preview-pane" :class="{ hidden: !visible }">
+    <header class="pane-heading"><div><span class="preview-dot"></span><strong>LIVE PREVIEW</strong><span class="preview-status">{{ device }}</span></div><div class="preview-actions"><select v-model="device" aria-label="Preview device" @change="changeDevice"><option value="desktop">Desktop</option><option value="tablet">Tablet</option><option value="mobile">Mobile</option></select><select v-model="zoom" aria-label="Preview zoom" @change="changeZoom"><option value="50">50%</option><option value="75">75%</option><option value="100">100%</option><option value="125">125%</option><option value="150">150%</option></select><button title="Refresh live preview" aria-label="Refresh live preview" @click="refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4M20 5v6h-6" /></svg></button></div></header>
+    <div class="browser-chrome"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="address">preview / {{ workspaceName }} / index.html</span></div>
+    <div class="preview-stage"><iframe id="preview-frame" data-teloce-preserve title="Website preview" sandbox="allow-scripts"></iframe></div>
+  </section>
+</template>
+
+<script>
+export default {
+  props: { visible: { type: Boolean, default: true } },
+  data() { return { device: 'desktop', zoom: '100', workspaceName: 'starter-site' } },
+  mounted() { window.VelStudioPreview?.mount?.('preview-frame'); window.VelStudioPreview?.refresh?.(); this.workspaceName = window.VelStudioShell?.workspaceName || this.workspaceName },
+  beforeUnmount() { window.VelStudioPreview?.dispose?.('preview-frame') },
+  methods: { refresh() { window.VelStudioPreview?.refresh?.() }, changeDevice() { window.VelStudioPreview?.setDevice?.(this.device) }, changeZoom() { const frame = document.getElementById('preview-frame'); if (frame) frame.style.transform = `scale(${Number(this.zoom) / 100})`; if (frame) frame.style.transformOrigin = 'top center' } },
+}
+</script>
+
+<style scoped>
+.preview-pane { display: grid; grid-template-rows: 2.4rem 2rem minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid #1e3049; background: #0f1929; }.preview-pane.hidden { display: none; }.pane-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-width: 0; padding: 0 .65rem; border-bottom: 1px solid #1e3049; color: #c0cee2; font-size: .66rem; letter-spacing: .08em; font-weight: 800; }.pane-heading > div:first-child { display: flex; align-items: center; gap: .42rem; min-width: 0; }.preview-dot { width: .42rem; height: .42rem; flex: 0 0 auto; border-radius: 50%; background: #e5bb70; }.preview-status { overflow: hidden; margin-left: .2rem; color: #687f9e; font-size: .58rem; font-weight: 500; letter-spacing: 0; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }.preview-actions { display: flex; align-items: center; gap: .3rem; }.preview-actions select { border: 1px solid #2e4663; border-radius: .25rem; padding: .22rem .3rem; background: #18283e; color: #a9bad0; font-size: .6rem; }.preview-actions button { display: grid; place-items: center; width: 1.55rem; height: 1.5rem; border: 1px solid transparent; border-radius: .25rem; background: transparent; color: #89a1ba; cursor: pointer; }.preview-actions button:hover { border-color: #31516d; background: #1a2b42; color: #fff; }.preview-actions svg { width: .8rem; height: .8rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }.browser-chrome { display: flex; align-items: center; gap: .32rem; padding: 0 .65rem; border-bottom: 1px solid #1b2c44; background: #152239; }.dot { width: .45rem; height: .45rem; border-radius: 50%; }.red { background: #dd8589; }.yellow { background: #dfbe73; }.green { background: #70c9a8; }.address { overflow: hidden; margin-left: .35rem; color: #768ca7; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }.preview-stage { min-width: 0; min-height: 0; overflow: auto; display: grid; place-items: start center; padding: .8rem; background: #0a111e; }.preview-stage iframe { display: block; width: 100%; height: 100%; min-height: 16rem; border: 1px solid #2b405b; border-radius: .25rem; background: #fff; box-shadow: 0 1rem 2rem #050a1455; }
+.preview-pane { height: 100%; }
+</style>

@@ -1,0 +1,12 @@
+<template>
+  <footer class="statusbar"><span class="status-state"><span class="status-dot"></span><span>{{ status }}</span></span><span class="status-spacer"></span><span class="status-item">{{ activeFile }}</span><span class="status-item">{{ editorStatus }}</span><span class="status-item">UTF-8</span><span class="status-item">Spaces: 2</span><span class="status-item">{{ dirty ? 'Unsaved' : 'Saved' }}</span></footer>
+</template>
+
+<script>
+export default { props: { status: String, editorStatus: String, activeFile: String, dirty: Boolean } }
+</script>
+
+<style scoped>
+.statusbar { display: flex; align-items: center; gap: .85rem; min-width: 0; padding: 0 .75rem; border-top: 1px solid #243b56; background: #111c2e; color: #aabbd1; font-size: .63rem; }.status-state { display: flex; align-items: center; gap: .4rem; color: #cde0ef; }.status-dot { width: .4rem; height: .4rem; border-radius: 50%; background: #62d9c7; box-shadow: 0 0 0 .16rem #62d9c722; }.status-spacer { flex: 1; }.status-item { overflow: hidden; max-width: 12rem; text-overflow: ellipsis; white-space: nowrap; }.status-item:last-child { color: #62d9c7; font-weight: 700; }
+@media (max-width: 760px) { .status-item:nth-last-child(-n+3) { display: none; } }
+</style>

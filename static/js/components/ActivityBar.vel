@@ -1,0 +1,31 @@
+<template>
+  <aside class="activity-bar" aria-label="Main navigation">
+    <a class="rail-logo" href="#" aria-label="HTML Studio home" @click.prevent="go('editor')"><img src="/static/assets/html-studio-logo.svg" alt="" /></a>
+    <button class="activity-button" :class="{ active: page === 'editor' }" title="Code editor" aria-label="Code" :aria-pressed="page === 'editor'" @click="go('editor')"><svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" /></svg><span>Code</span></button>
+    <button class="activity-button" :class="{ active: page === 'learn' }" title="Learn HTML, CSS and JavaScript" aria-label="Learn" :aria-pressed="page === 'learn'" @click="go('learn')"><svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5zM4 5.5v16M8 7h8M8 11h8" /></svg><span>Learn</span></button>
+    <button class="activity-button" :class="{ active: page === 'challenges' }" title="Coding challenges" aria-label="Play" :aria-pressed="page === 'challenges'" @click="go('challenges')"><svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 5 5 2-5 2-2 5-2-5-5-2 5-2zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" /></svg><span>Play</span></button>
+    <button class="activity-button activity-bottom" :class="{ active: page === 'settings' }" title="Settings" aria-label="More" :aria-pressed="page === 'settings'" @click="go('settings')"><svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4M15.5 12A3.5 3.5 0 1 1 8.5 12a3.5 3.5 0 0 1 7 0Z" /></svg><span>More</span></button>
+  </aside>
+</template>
+
+<script>
+export default {
+  props: { page: { type: String, default: 'editor' } },
+  methods: {
+    go(page) {
+      const shell = window.VelStudioShell
+      if (!shell) return
+      if (page === 'editor') shell.showEditor()
+      else if (page === 'learn') shell.showLearn()
+      else if (page === 'challenges') shell.showChallenges()
+      else shell.showSettings()
+    },
+  },
+}
+</script>
+
+<style scoped>
+.activity-bar { display: flex; flex-direction: column; align-items: center; gap: .45rem; padding: .55rem .35rem; border-right: 1px solid #1d2a42; background: #111a2b; }
+.rail-logo { display: grid; place-items: center; width: 2.35rem; height: 2.35rem; margin-bottom: .7rem; border: 1px solid #2d5374; border-radius: .65rem; background: #172c45; box-shadow: 0 8px 20px #05091455; }.rail-logo img { width: 1.6rem; height: 1.6rem; }
+.activity-button { display: grid; justify-items: center; gap: .24rem; width: 3rem; padding: .55rem .1rem; border: 1px solid transparent; border-radius: .45rem; background: transparent; color: #8092ae; cursor: pointer; font-size: .63rem; font-weight: 700; transition: background .16s, color .16s, border-color .16s; }.activity-button:hover { border-color: #2d4968; background: #192b43; color: #eaf3ff; }.activity-button.active { border-color: #2b7f89; background: #173949; color: #effbff; box-shadow: inset 2px 0 #64dfce; }.rail-icon { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }.activity-button.active .rail-icon { color: #64dfce; }.activity-bottom { margin-top: auto; }
+</style>

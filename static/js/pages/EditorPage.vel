@@ -1,0 +1,67 @@
+<script>
+import FileExplorer from '../components/FileExplorer.vel'
+import EditorTabs from '../components/EditorTabs.vel'
+import CodeEditor from '../components/CodeEditor.vel'
+import PreviewPane from '../components/PreviewPane.vel'
+import BottomPanel from '../components/BottomPanel.vel'
+import CelebrationLayer from '../components/CelebrationLayer.vel'
+
+export default {
+  props: { activeFile: { type: String, default: 'index.html' }, dirty: { type: Boolean, default: false }, sidebarVisible: { type: Boolean, default: true }, previewVisible: { type: Boolean, default: true }, bottomVisible: { type: Boolean, default: false }, bottomTab: { type: String, default: 'problems' }, consoleLines: { type: Array, default: [] }, problemCount: { type: Number, default: 0 } },
+  components: { FileExplorer, EditorTabs, CodeEditor, PreviewPane, BottomPanel, CelebrationLayer },
+  data() { return { resizing: false, resizeStart: null, resizeKey: null, resizeMove: null, resizeEnd: null, helpVisible: false } },
+  mounted() {
+    this.resizeStart = event => { if (event.target?.closest?.('.split-divider')) this.beginResize(event) }
+    this.resizeKey = event => { if (!event.target?.closest?.('.split-divider')) return; if (event.key === 'ArrowLeft') { event.preventDefault(); this.nudgeResize(-5) } else if (event.key === 'ArrowRight') { event.preventDefault(); this.nudgeResize(5) } }
+    this.resizeMove = event => {
+      if (!this.resizing) return
+      const workbench = document.querySelector('.workbench')
+      const code = document.querySelector('.code-column')
+      if (!workbench || !code) return
+      const available = workbench.getBoundingClientRect().right - code.getBoundingClientRect().left
+      if (available <= 0) return
+      const ratio = Math.max(35, Math.min(72, ((event.clientX - code.getBoundingClientRect().left) / available) * 100))
+      workbench.style.setProperty('--code-percent', ratio)
+      workbench.style.setProperty('--code-share', `${ratio}fr`)
+      workbench.style.setProperty('--preview-share', `${100 - ratio}fr`)
+    }
+    this.resizeEnd = () => { if (this.resizing) { this.resizing = false; document.body.classList.remove('is-resizing') } }
+    document.addEventListener('pointerdown', this.resizeStart)
+    document.addEventListener('keydown', this.resizeKey)
+    window.addEventListener('pointermove', this.resizeMove)
+    window.addEventListener('pointerup', this.resizeEnd)
+  },
+  beforeUnmount() { if (this.resizeStart) document.removeEventListener('pointerdown', this.resizeStart); if (this.resizeKey) document.removeEventListener('keydown', this.resizeKey); if (this.resizeMove) window.removeEventListener('pointermove', this.resizeMove); if (this.resizeEnd) window.removeEventListener('pointerup', this.resizeEnd); document.body.classList.remove('is-resizing') },
+  methods: {
+    refresh() { window.VelStudioPreview?.refresh?.(); window.VelStudioShell?.setStatus?.('Preview refreshed') },
+    toggleSidebar() { window.VelStudioShell?.toggleSidebar?.() },
+    togglePreview() { window.VelStudioShell?.togglePreview?.() },
+    toggleBottom(tab) { window.VelStudioShell?.toggleBottom?.(tab) },
+    toggleHelp() { this.helpVisible = !this.helpVisible },
+    beginResize(event) { if (event.button !== 0) return; this.resizing = true; document.body.classList.add('is-resizing'); event.preventDefault() },
+    nudgeResize(delta) { const workbench = document.querySelector('.workbench'); if (!workbench) return; const current = Number.parseFloat(String(getComputedStyle(workbench).getPropertyValue('--code-percent') || '55')) || 55; const ratio = Math.max(35, Math.min(72, current + delta)); workbench.style.setProperty('--code-percent', ratio); workbench.style.setProperty('--code-share', `${ratio}fr`); workbench.style.setProperty('--preview-share', `${100 - ratio}fr`) },
+  },
+}
+</script>
+
+<template>
+  <main class="editor-page">
+    <div class="celebration-host"><CelebrationLayer /></div>
+    <header class="workspace-toolbar"><div class="workspace-heading"><span class="workspace-kicker">EDITOR</span><strong>{{ activeFile }}</strong><span v-if="dirty" class="dirty-label">Unsaved changes</span><span v-if="!dirty" class="saved-label">Saved locally</span></div><div class="workspace-actions"><button class="icon-button labeled-button" title="Show or hide your project files" aria-label="Show or hide project files" @click="toggleSidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v14H4zM10 5h10v14H10" /></svg><span>Files</span></button><button class="icon-button labeled-button" title="Show or hide the live website preview" aria-label="Show or hide live preview" @click="togglePreview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1" /><path d="M8 9h8M8 13h5" /></svg><span>Preview</span></button><button class="icon-button labeled-button" title="Show or hide messages and errors" aria-label="Show or hide output panel" @click="toggleBottom('problems')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM8 19h8M12 15v4" /></svg><span>Output</span></button><button class="refresh-button" title="Refresh live preview" @click="refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4M20 5v6h-6" /></svg><span>Refresh</span></button><button class="help-button" title="Show the beginner guide" aria-label="How to use HTML Studio" :aria-expanded="helpVisible" @click="toggleHelp">? How to use</button></div></header>
+    <aside v-if="helpVisible" class="beginner-help" aria-label="How to use HTML Studio"><div class="help-heading"><div><span class="workspace-kicker">START HERE</span><h2>Make a website in five steps</h2></div><button aria-label="Close beginner guide" title="Close guide" @click="toggleHelp">×</button></div><ol><li><strong>Choose a file</strong><span>Click index.html for page structure, styles.css for colors and layout, or app.js for actions.</span></li><li><strong>Type a small change</strong><span>Click in the dark code area and write one idea at a time.</span></li><li><strong>Run your project</strong><span>Press the green Run button at the top, or press F5.</span></li><li><strong>Look at Preview</strong><span>Your website appears on the right. Click its buttons like a real visitor.</span></li><li><strong>Save your work</strong><span>HTML Studio saves local recovery copies. Press Save when you want a clear checkpoint.</span></li></ol><p class="help-tip"><b>Stuck?</b> Open Learn or Play on the left for a guided lesson. You can always come back to your files.</p><button class="help-done" @click="toggleHelp">Got it</button></aside>
+    <section class="workspace-content"><section class="workbench" :class="{ 'sidebar-off': !sidebarVisible, 'preview-off': !previewVisible }"><FileExplorer :visible="sidebarVisible" /><section class="code-column"><EditorTabs :active-file="activeFile" /><CodeEditor /></section><div v-if="previewVisible" class="split-divider" role="separator" aria-label="Resize editor and preview" aria-orientation="vertical" tabindex="0"><span></span></div><PreviewPane :visible="previewVisible" /></section><BottomPanel :visible="bottomVisible" :tab="bottomTab" :lines="consoleLines" :problem-count="problemCount" /></section>
+  </main>
+</template>
+
+<style scoped>
+.editor-page { display: grid; grid-template-rows: 2.85rem minmax(0, 1fr); height: 100%; min-height: 0; background: #0c1220; }.workspace-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .8rem; min-width: 0; padding: 0 .85rem; border-bottom: 1px solid #1e3049; background: #121c2e; }.workspace-heading, .workspace-actions { display: flex; align-items: center; gap: .65rem; min-width: 0; }.workspace-heading strong { overflow: hidden; color: #edf4ff; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }.workspace-kicker { color: #6f8ba7; font-size: .6rem; font-weight: 900; letter-spacing: .12em; }.dirty-label { color: #e2bc75; font-size: .65rem; }.saved-label { color: #5fd1c1; font-size: .65rem; }.icon-button, .refresh-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: .32rem; background: transparent; color: #8da5c1; cursor: pointer; }.icon-button { width: 1.8rem; height: 1.8rem; }.icon-button:hover, .refresh-button:hover { border-color: #31516d; background: #1a2b42; color: #e8f5ff; }.icon-button svg, .refresh-button svg { width: .95rem; height: .95rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }.refresh-button { gap: .35rem; padding: .3rem .5rem; font-size: .66rem; }.workspace-content { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100%; min-height: 0; }.workbench { --code-percent: 55; display: grid; grid-template-columns: 15rem minmax(24rem, var(--code-share, 1fr)) .35rem minmax(22rem, var(--preview-share, .9fr)); height: 100%; min-height: 0; overflow: hidden; }.workbench.sidebar-off { grid-template-columns: minmax(24rem, var(--code-share, 1fr)) .35rem minmax(22rem, var(--preview-share, .9fr)); }.workbench.preview-off { grid-template-columns: 15rem minmax(0, 1fr); }.workbench.sidebar-off.preview-off { grid-template-columns: minmax(0, 1fr); }.workbench > * { min-width: 0; min-height: 0; }.code-column { display: grid; grid-template-rows: 2.4rem minmax(0, 1fr); min-height: 0; overflow: hidden; background: #0d1424; }.code-column > * { min-height: 0; }.split-divider { display: grid; place-items: center; min-width: .35rem; border-inline: 1px solid #20334e; background: #111c2e; cursor: col-resize; outline: none; }.split-divider:hover, .split-divider:focus { background: #19394a; }.split-divider span { width: .12rem; height: 2.4rem; border-radius: 99px; background: #4d6a84; }.split-divider:focus span, .split-divider:hover span { background: #62d9c7; }
+@media (max-width: 1150px) { .workbench { grid-template-columns: 13rem minmax(0, 1fr); }.workbench.preview-off { grid-template-columns: 13rem minmax(0, 1fr); }.workbench > .preview-pane, .workbench > .split-divider { display: none; } }
+@media (max-width: 720px) { .workspace-toolbar { padding-inline: .55rem; }.workspace-kicker, .dirty-label, .saved-label { display: none; }.refresh-button span { display: none; }.workbench, .workbench.sidebar-off, .workbench.preview-off, .workbench.sidebar-off.preview-off { display: flex; flex-direction: column; overflow: auto; }.workbench > .explorer { flex: 0 0 10rem; max-height: 10rem; }.code-column { flex: 1 0 25rem; min-height: 25rem; }.workbench > .preview-pane { display: grid; flex: 0 0 21rem; min-height: 21rem; }.workbench > .split-divider { display: none; } }
+.workbench > fileexplorer, .workbench > previewpane { height: 100%; }
+.workbench > fileexplorer, .workbench > previewpane, .code-column > editortabs, .code-column > codeeditor { height: 100%; min-height: 0; }
+.workbench.sidebar-off > fileexplorer, .workbench.preview-off > previewpane { display: none; }
+@media (max-width: 720px) { .workbench > fileexplorer { flex: 0 0 10rem; max-height: 10rem; height: auto; }.workbench > previewpane { display: flex; flex: 0 0 21rem; min-height: 21rem; height: auto; } }
+.editor-page { position: relative; }.labeled-button { gap: .3rem; width: auto; padding-inline: .42rem; }.labeled-button span { font-size: .6rem; }.help-button { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid #58709a; border-radius: .35rem; padding: .38rem .55rem; background: #222d4b; color: #f0e8ff; font-size: .65rem; font-weight: 800; cursor: pointer; }.help-button:hover { border-color: #70dfce; background: #254354; color: #fff; }.beginner-help { position: absolute; z-index: 50; top: 3.35rem; right: .9rem; width: min(27rem, calc(100% - 1.8rem)); border: 1px solid #526b92; border-radius: .65rem; padding: 1rem; background: #15243b; box-shadow: 0 1.2rem 3rem #020711aa; }.help-heading { display: flex; align-items: start; justify-content: space-between; gap: .8rem; }.help-heading h2 { margin: .3rem 0 0; color: #fff; font-size: 1.05rem; }.help-heading button { border: 0; background: transparent; color: #a9bad2; font-size: 1.25rem; cursor: pointer; }.beginner-help ol { display: grid; gap: .65rem; margin: 1rem 0; padding-left: 1.4rem; }.beginner-help li { padding-left: .2rem; color: #d6e3f1; }.beginner-help li::marker { color: #70dfce; font-weight: 900; }.beginner-help li strong, .beginner-help li span { display: block; }.beginner-help li strong { color: #fff; font-size: .72rem; }.beginner-help li span { margin-top: .12rem; color: #9db1cc; font-size: .67rem; line-height: 1.45; }.help-tip { margin: 0; border-left: 2px solid #ffc96b; padding-left: .6rem; color: #bac8dd; font-size: .68rem; line-height: 1.45; }.help-tip b { color: #ffc96b; }.help-done { width: 100%; margin-top: .8rem; border: 0; border-radius: .35rem; padding: .55rem; background: #70dfce; color: #092230; font-size: .68rem; font-weight: 900; cursor: pointer; }
+.editor-page > .celebration-host { position: fixed; z-index: 100; inset: 0; height: 0; pointer-events: none; }
+@media (max-width: 720px) { .labeled-button span { display: none; }.help-button { padding-inline: .45rem; }.beginner-help { top: 3rem; right: .55rem; width: calc(100% - 1.1rem); } }
+</style>

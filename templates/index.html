@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="HTML Studio is a friendly native coding studio for learning HTML, CSS and JavaScript.">
+    <meta name="teloce-build-error" content="{{BUILD_ERROR}}">
+    <link rel="icon" href="/static/assets/html-studio-logo.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/assets/html-studio-logo.svg">
+    <title>HTML Studio</title>
+    <script>
+      (() => {
+        const baseUrl = new URL("/static/vendor/monaco/", window.location.href).href;
+        window.MonacoEnvironment = {
+          baseUrl,
+          getWorkerUrl() {
+            const worker = `self.MonacoEnvironment = { baseUrl: ${JSON.stringify(baseUrl)} }; importScripts(${JSON.stringify(`${baseUrl}vs/base/worker/workerMain.js`)});`;
+            return `data:text/javascript;charset=utf-8,${encodeURIComponent(worker)}`;
+          },
+        };
+      })();
+    </script>
+    <script src="/static/vendor/monaco/vs/loader.js"></script>
+    <script>window.require.config({ paths: { vs: "/static/vendor/monaco/vs" } });</script>
+    <script src="/static/js/adapters/workspace.js"></script>
+    <script src="/static/js/adapters/learning.js"></script>
+    <script src="/static/js/adapters/monaco.js"></script>
+    <script src="/static/js/adapters/preview.js"></script>
+    <script src="/static/js/adapters/app.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mount } from "/static/js/App.js";
+      mount(document.querySelector("#app"));
+    </script>
+  </body>
+</html>

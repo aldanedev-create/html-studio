@@ -1,0 +1,17 @@
+<template>
+  <section class="editor-pane">
+    <div class="pane-heading"><span><b class="code-dot"></b> CODE EDITOR</span><div class="editor-tools"><button :class="{ active: minimap }" title="Toggle minimap" @click="toggleMinimap">Minimap</button><button :class="{ active: wrap }" title="Toggle word wrap" @click="toggleWrap">Wrap</button><span class="language">HTML / CSS / JS</span></div></div>
+    <div id="code-editor" class="code-editor-container" data-teloce-preserve aria-label="Monaco code editor">
+      <div id="local-editor-loading" class="editor-loading" aria-live="polite">Opening editor…</div>
+    </div>
+  </section>
+</template>
+
+<script>
+export default { data() { return { minimap: false, wrap: false } }, mounted() { window.VelStudioEditor?.mount?.('code-editor', this) }, beforeUnmount() { window.VelStudioEditor?.dispose?.() }, methods: { toggleMinimap() { this.minimap = !this.minimap; window.VelStudioEditor?.updateOptions?.({ minimap: { enabled: this.minimap } }) }, toggleWrap() { this.wrap = !this.wrap; window.VelStudioEditor?.updateOptions?.({ wordWrap: this.wrap ? 'on' : 'off' }) } } }
+</script>
+
+<style scoped>
+.editor-pane { display: grid; grid-template-rows: 2.4rem minmax(0, 1fr); min-width: 0; min-height: 0; background: #0d1424; }.pane-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-width: 0; padding: 0 .75rem; border-bottom: 1px solid #1e3049; color: #bdcbe0; font-size: .66rem; letter-spacing: .08em; font-weight: 800; }.code-dot { display: inline-block; width: .42rem; height: .42rem; margin-right: .4rem; border-radius: 50%; background: #62d9c7; }.editor-tools { display: flex; align-items: center; gap: .35rem; min-width: 0; }.editor-tools button { border: 1px solid transparent; border-radius: .25rem; padding: .2rem .35rem; background: transparent; color: #70869e; font-size: .6rem; cursor: pointer; }.editor-tools button:hover, .editor-tools button.active { border-color: #31516d; background: #172b42; color: #9eeadd; }.language { color: #70859f; font-weight: 500; letter-spacing: 0; white-space: nowrap; }.code-editor-container { position: relative; min-height: 18rem; overflow: hidden; background: #0d1424; }.editor-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #91a7c2; font: 13px/1.5 "Cascadia Code", Consolas, monospace; background: #0d1424; }
+.editor-pane { height: 100%; }
+</style>
