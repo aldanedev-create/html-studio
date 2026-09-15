@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 import re
 
@@ -249,6 +250,47 @@ def test_local_editor_keeps_files_editable_without_external_editor_cdn(chromium_
         assert page.locator(".monaco-editor").is_visible()
         assert not page.locator("script[src*='cdn.jsdelivr.net']").count()
         assert page.locator("script[src*='/static/vendor/monaco/']").count() >= 1
+    finally:
+        context.close()
+
+
+def test_native_tauri_workspace_bridge_loads_starter_and_preview(chromium_browser) -> None:
+    """Exercise the Tauri adapter branch with the same bridge shape as Tauri 2."""
+    files = {
+        "index.html": "<!doctype html><html><head><title>Starter</title></head><body><main><h1>Hello, creator!</h1><button id='try'>Try a button</button><p id='message'></p></main><script src='app.js'></script></body></html>",
+        "app.js": "document.querySelector('#try').addEventListener('click', () => document.querySelector('#message').textContent = 'It works! JavaScript heard your click.');",
+        "styles.css": "body { margin: 0; }",
+    }
+    records = [
+        {"path": path, "name": path, "kind": "file", "size": len(content)}
+        for path, content in files.items()
+    ]
+    bridge = """
+(() => {
+  const files = %s;
+  window.__TAURI__ = {
+    core: { invoke: async (name, args) => {
+      if (name === 'workspace_list') return %s;
+      if (name === 'workspace_info') return { root: 'C:/AppData/HTML Studio/workspace/starter-site', name: 'starter-site' };
+      if (name === 'workspace_read') return files[args.path];
+      if (name === 'workspace_write') { files[args.path] = args.content; return null; }
+      throw new Error('unexpected invoke: ' + name);
+    }},
+    dialog: { open: async () => null }
+  };
+})();
+""" % (json.dumps(files), json.dumps(records))
+    context = chromium_browser.new_context(viewport={"width": 1440, "height": 900})
+    context.add_init_script(bridge)
+    page = context.new_page()
+    try:
+        page.goto(_url("/"), wait_until="commit", timeout=15000)
+        page.locator(".monaco-editor").wait_for(state="visible", timeout=15000)
+        page.locator("#preview-frame").wait_for(state="visible", timeout=15000)
+        page.frame_locator("#preview-frame").get_by_role("heading", name="Hello, creator!").wait_for(state="visible", timeout=10000)
+        page.frame_locator("#preview-frame").get_by_role("button", name="Try a button").click()
+        page.frame_locator("#preview-frame").get_by_text("It works! JavaScript heard your click.").wait_for(state="visible", timeout=5000)
+        assert page.evaluate("() => Boolean(window.__TAURI__ && window.VelStudioWorkspace)")
     finally:
         context.close()
 

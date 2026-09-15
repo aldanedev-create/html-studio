@@ -78,3 +78,13 @@ button, input, select { font: inherit; }
 @media (max-width: 720px) { .studio-shell { grid-template-rows: auto minmax(0, 1fr) 1.55rem; } .studio-body { grid-template-columns: 3.35rem minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
 </style>
+
+<style>
+/* The page host contains custom elements (learnpage, editorpage, etc.).
+   Custom elements are inline by default, so they otherwise grow past the
+   work area and the shell clips their scrollable content. */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+#app { width: 100%; height: 100%; min-height: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+.page-host > * { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+</style>

@@ -45,3 +45,16 @@ export default {
 @media (max-width: 900px) { .learn-hero { align-items: start; flex-direction: column; }.hero-progress { width: 100%; grid-template-columns: auto repeat(2, 1fr); }.continue-grid { grid-template-columns: 1fr; }.project-grid, .video-grid, .resource-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .learn-content { padding-inline: .85rem; }.learning-search { align-items: start; flex-direction: column; }.hero-progress { grid-template-columns: auto auto; }.search-grid, .project-grid, .video-grid, .resource-grid { grid-template-columns: 1fr; }.section-heading { align-items: start; flex-direction: column; }.path-caption { font-size: .62rem; }.challenge-dots { margin-left: 0; }.optional-copy { margin-left: 0; }.current-main { gap: .65rem; }.challenge-number { flex-basis: 2.8rem; height: 2.8rem; }.current-footer { align-items: start; flex-direction: column; } }
 </style>
+
+<style>
+/* Keep the lesson surface inside the shell so the whole path is reachable
+   with the mouse wheel, touchpad, keyboard, and Tauri's WebView scrollbar. */
+.learn-page { width: 100%; height: 100%; max-height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; scrollbar-color: #466486 #0d1728; padding-bottom: 1.5rem; }
+.learn-page::-webkit-scrollbar { width: .72rem; }
+.learn-page::-webkit-scrollbar-track { background: #0d1728; }
+.learn-page::-webkit-scrollbar-thumb { border: 2px solid #0d1728; border-radius: 1rem; background: #466486; }
+.learn-hero, .learn-content { min-width: 0; }
+.hero-copy { min-width: 0; }
+.learn-hero h1, .hero-lede, .current-main h2, .current-main p, .next-card h3, .next-card p, .project-card h3, .project-card p { overflow-wrap: anywhere; }
+@media (max-width: 900px) { .learn-hero { align-items: flex-start; flex-direction: column; } .hero-progress { width: min(100%, 28rem); } }
+</style>

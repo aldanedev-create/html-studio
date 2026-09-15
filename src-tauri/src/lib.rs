@@ -165,27 +165,35 @@ fn collect_files(root: &Path, current: &Path, records: &mut Vec<FileRecord>) -> 
 }
 
 fn seed_workspace(app: &AppHandle, destination: &Path) -> Result<(), String> {
-    if destination.exists() {
-        return Ok(());
-    }
     fs::create_dir_all(destination).map_err(|error| error.to_string())?;
-    let resource = app
+    let resource_dir = app
         .path()
         .resource_dir()
-        .map_err(|error| error.to_string())?
-        .join("workspace/starter-site");
-    let source = if resource.is_dir() {
-        resource
-    } else {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../workspace/starter-site")
-    };
+        .map_err(|error| error.to_string())?;
+    // Tauri's resource bundler places a directory resource at its basename,
+    // while the Store MSIX workflow keeps the explicit workspace path. Accept
+    // both layouts so development, native bundles, and Store packages share
+    // the same first-run behavior.
+    let bundled_sources = [
+        resource_dir.join("workspace/starter-site"),
+        resource_dir.join("starter-site"),
+    ];
+    let source = bundled_sources
+        .iter()
+        .find(|path| path.is_dir())
+        .cloned()
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../workspace/starter-site")
+        });
     if !source.is_dir() {
         return Ok(());
     }
     for entry in fs::read_dir(source).map_err(|error| error.to_string())? {
         let entry = entry.map_err(|error| error.to_string())?;
         let target = destination.join(entry.file_name());
-        if entry.path().is_file() {
+        // Never overwrite a user's existing work when an older installation
+        // is upgraded; only repair files that are genuinely missing.
+        if entry.path().is_file() && !target.exists() {
             fs::copy(entry.path(), target).map_err(|error| error.to_string())?;
         }
     }

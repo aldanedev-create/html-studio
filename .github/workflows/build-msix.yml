@@ -84,8 +84,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $stage = Join-Path $pwd 'msix-stage'
           $assets = Join-Path $stage 'Assets'
+          $workspaceSource = Join-Path $pwd 'workspace/starter-site'
+          $workspaceTarget = Join-Path $stage 'resources/workspace/starter-site'
           $artifactDir = Join-Path $pwd 'artifacts'
-          New-Item -ItemType Directory -Force -Path $assets, $artifactDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $assets, $workspaceTarget, $artifactDir | Out-Null
+
+          if (-not (Test-Path -LiteralPath $workspaceSource)) { throw "Starter workspace was not found: $workspaceSource" }
+          Copy-Item (Join-Path $workspaceSource '*') $workspaceTarget -Recurse -Force
 
           $exe = Join-Path $pwd 'src-tauri/target/release/html-studio.exe'
           if (-not (Test-Path $exe)) { throw "Tauri executable was not produced: $exe" }
