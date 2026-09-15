@@ -32,7 +32,7 @@
     "category": "DeveloperTool",
     "shortDescription": "A friendly HTML, CSS and JavaScript learning studio",
     "longDescription": "Learn to build real websites with a Monaco editor, live preview, local files, CDN libraries, and Teloce .vel components.",
-    "resources": ["workspace/starter-site"],
+    "resources": ["../workspace/starter-site"],
     "windows": {
       "webviewInstallMode": { "type": "offlineInstaller" },
       "nsis": { "installMode": "currentUser" }
