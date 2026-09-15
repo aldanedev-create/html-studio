@@ -125,7 +125,20 @@ jobs:
           "@
           $manifest.Trim() | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 
-          $makeAppx = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin" -Recurse -Filter MakeAppx.exe -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+          $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $kitRoots = @(
+            (Join-Path $programFilesX86 'Windows Kits\10\bin'),
+            (Join-Path $env:ProgramFiles 'Windows Kits\10\bin')
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          $makeAppx = Get-ChildItem -Path $kitRoots -Recurse -Filter MakeAppx.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $makeAppx) {
+            $makeAppx = Get-ChildItem -Path $kitRoots -Recurse -Filter MakeAppx.exe -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+          }
           if (-not $makeAppx) { throw 'MakeAppx.exe was not found on the Windows runner.' }
           & $makeAppx.FullName pack /d $stage /p (Join-Path $artifactDir 'HTML-Studio.msix') /o
           if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
@@ -138,7 +151,20 @@ jobs:
         run: |
           $pfx = Join-Path $env:RUNNER_TEMP 'html-studio.pfx'
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:MSIX_PFX_BASE64))
-          $signTool = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+          $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $kitRoots = @(
+            (Join-Path $programFilesX86 'Windows Kits\10\bin'),
+            (Join-Path $env:ProgramFiles 'Windows Kits\10\bin')
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          $signTool = Get-ChildItem -Path $kitRoots -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signTool) {
+            $signTool = Get-ChildItem -Path $kitRoots -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+          }
           if (-not $signTool) { throw 'SignTool.exe was not found on the Windows runner.' }
           & $signTool.FullName sign /fd SHA256 /f $pfx /p $env:MSIX_PFX_PASSWORD (Join-Path $pwd 'artifacts/HTML-Studio.msix')
           if ($LASTEXITCODE -ne 0) { throw "SignTool failed with exit code $LASTEXITCODE" }
