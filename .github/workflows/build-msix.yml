@@ -107,7 +107,7 @@ jobs:
           <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap rescap">
             <Identity Name="$env:MSIX_IDENTITY_NAME" Publisher="$env:MSIX_PUBLISHER" Version="$msixVersion" ProcessorArchitecture="x64" />
             <Properties>
-              <DisplayName>HTML Studio</DisplayName>
+              <DisplayName>html-studio</DisplayName>
               <PublisherDisplayName>$env:MSIX_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
               <Description>Learn to build websites with HTML Studio, Teloce .vel components, and Flaxon.</Description>
               <Logo>Assets\StoreLogo.png</Logo>
@@ -118,7 +118,7 @@ jobs:
             </Dependencies>
             <Applications>
               <Application Id="App" Executable="html-studio.exe" EntryPoint="Windows.FullTrustApplication">
-                <uap:VisualElements AppListEntry="default" DisplayName="HTML Studio" Description="A friendly HTML, CSS, and JavaScript learning studio" BackgroundColor="#10182A" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+                <uap:VisualElements AppListEntry="default" DisplayName="html-studio" Description="A friendly HTML, CSS, and JavaScript learning studio" BackgroundColor="#10182A" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
               </Application>
             </Applications>
             <Capabilities>
