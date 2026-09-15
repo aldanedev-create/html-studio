@@ -35,8 +35,8 @@ web server. External CDN URLs remain available in the preview sandbox.
 
 Push a tag such as `v0.1.0` or manually run **Windows package** in GitHub
 Actions. The workflow checks out editable Teloce-Py and Flaxon, builds the
-frontend, packages the Flaxon sidecar, and stages an unsigned MSIX. The Store
-identity configured by `scripts/stage-msix.ps1` is:
+frontend, packages the native Tauri shell, and stages an MSIX. The Store
+identity configured by the workflow is:
 
 ```text
 Identity Name: HappyRecorder3D.html-studio
@@ -44,8 +44,10 @@ Publisher: CN=50CA2AC2-0155-44AC-B2B0-47100A3FB6E2
 Publisher display name: Happy Recorder 3D
 ```
 
-The artifact still has to be signed with the certificate matching that
-publisher before Store submission. See `docs/microsoft-store.md`.
+The Microsoft Store signs the MSIX after it passes certification, so a private
+PFX is not required for Store submission. A certificate is only needed when
+you distribute the MSIX directly or install it by sideloading. See
+`docs/microsoft-store.md`.
 
 ## Scope
 

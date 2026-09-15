@@ -1,9 +1,10 @@
 # Microsoft Store packaging
 
 HTML Studio is packaged as a native Tauri Windows application. It is not
-submitted as a PWA. GitHub Actions builds the Teloce frontend, creates a
-PyInstaller Flaxon sidecar, packages the Tauri application, and runs
-`scripts/stage-msix.ps1` to create an unsigned MSIX staging artifact.
+submitted as a PWA. GitHub Actions builds the Teloce frontend, packages the
+Tauri application, and creates an MSIX staging artifact. The current native
+editor uses Tauri's Rust filesystem bridge; Flaxon is used for the editable
+local development server and is not bundled as a production sidecar yet.
 
 ## Store identity
 
@@ -16,24 +17,23 @@ The staging manifest uses the values supplied for this product:
 | `Package/Properties/PublisherDisplayName` | `Happy Recorder 3D` |
 | Display name | `HTML Studio` |
 
-The executable is renamed to `HTMLStudio.exe` in the staging directory so the
-manifest and package are self-consistent. `runFullTrust` is required because
-Tauri launches a local desktop process and a Flaxon sidecar; request approval
-or retain the capability only for the desktop package that needs it.
+The staging executable is `html-studio.exe`. `runFullTrust` is required for
+the packaged Tauri desktop process; retain the capability only for this
+desktop package.
 
 ## Release steps
 
 1. Ensure the GitHub repository can check out the `teloce-python` and Flaxon
-   repositories used by `.github/workflows/windows-msix.yml`.
+   repositories used by `.github/workflows/build-msix.yml`.
 2. Run the workflow manually or push a `v*` tag.
-3. Download the `html-studio-windows` artifact and inspect the generated
+3. Download the `html-studio-msix` artifact and inspect the generated
    `AppxManifest.xml` before submission.
-4. Sign the MSIX with the certificate whose subject matches the Publisher
-   value. An unsigned package is useful for validation but cannot be shipped
-   to customers.
-5. Upload the signed package to Partner Center and resolve any identity,
+4. Upload the MSIX to Partner Center. Microsoft re-signs MSIX packages with
+   a Microsoft certificate after they pass certification; you do not need to
+   provide a CA-trusted PFX for Store submission.
+5. Resolve any identity,
    capability, logo, or certificate warnings there.
 
-The workflow deliberately does not store a signing certificate in the
-repository. Configure signing in a protected release workflow when the
-certificate and Store account are ready.
+If you also distribute the package outside the Store, configure a protected
+release workflow with your own trusted signing certificate for that separate
+distribution path.

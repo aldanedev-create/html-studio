@@ -14,7 +14,11 @@ HTML Studio is built against the source checkouts of both framework packages. Th
 - run: python -m pip install -e ../teloce-python -e ../flaxon
 ```
 
-The HTML Studio workflow then runs `python build.py`. Teloce compiles every `.vel` file into the `dist/static/js` tree and uses the shared runtime. Flaxon is installed editable so the app’s Python APIs and native build checks exercise the checked-out framework source.
+The HTML Studio workflow then runs `python build.py`. Teloce compiles every
+`.vel` file into the `dist/static/js` tree and uses the shared runtime. Flaxon
+is installed editable so the local Flaxon server and integration checks use
+the checked-out framework source; the current native MSIX does not bundle a
+Flaxon Python sidecar.
 
 The workflow is in `.github/workflows/build-msix.yml`. It builds the Tauri executable, generates the store icons, writes an MSIX manifest with the reserved identity `HappyRecorder3D.html-studio`, and uploads `HTML-Studio.msix` as an artifact.
 
@@ -25,4 +29,8 @@ Run the workflow manually or push a `v*` tag. The artifact is unsigned unless th
 - `MSIX_PFX_BASE64`: base64-encoded PFX certificate
 - `MSIX_PFX_PASSWORD`: PFX password
 
-The certificate’s subject must match `CN=50CA2AC2-0155-44AC-B2B0-47100A3FB6E2`. For Microsoft Store submission, use the package identity reserved for the product and validate the resulting artifact in Partner Center before release.
+Those optional secrets are only for direct distribution or sideload testing.
+For Microsoft Store submission, the MSIX does not need a CA-trusted signing
+certificate: Microsoft re-signs it after certification. Use the package
+identity reserved for the product and validate the artifact in Partner Center
+before release.
